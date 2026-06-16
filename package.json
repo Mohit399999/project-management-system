@@ -1,0 +1,12 @@
+{
+  "name": "project-management-system",
+  "version": "1.0.0",
+  "description": "a project management application for beginners",
+  "license": "ISC",
+  "author": "mohit",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "dev": "node index.js"
+  }
+}
