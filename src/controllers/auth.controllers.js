@@ -7,12 +7,12 @@ import {emailVerificationMailgenContent,sendMail} from "../utils/mail.js"
 const generateAccessAndRefreshTokens=async(userId)=>{
     try {
         const user=await User.findById(userId)
-        const acessToken=user.generateAcessToken()
+        const accessToken=user.generateAcessToken()
         const refreshToken=user.generateRefreshToken()
 
         user.refreshToken=refreshToken
         await user.save({validateBeforeSave:false})
-        return {acessToken,refreshToken}
+        return {accessToken,refreshToken}
     } catch (error) {
         throw new ApiError(500,"something went wrong while generating access token")
     }
@@ -71,4 +71,51 @@ const registerUser=asyncHandler(async (req,res)=>{
     )
 })
 
-export {registerUser}
+const login=asyncHandler(async (req,res)=>{
+    const {email,password,username}=req.body
+
+    if(!email && !username){
+        throw new ApiError(400,"username or email is required")
+    }
+
+
+    const user = await User.findOne(
+    username ? { username } : { email }
+);
+    if(!user){
+        throw new ApiError(400,"user does not exists")
+    }
+
+
+    const isPasswordValid=await user.isPasswordCorrect(password)
+
+    if(!isPasswordValid){
+        throw new ApiError(400,"Invalid credentials")
+    }
+    const {accessToken,refreshToken}=await generateAccessAndRefreshTokens(user._id)
+
+    const loggedInuser =await User.findById(user._id).select(
+        "-password -refreshToken -emailVerificationToken -emailVerificationExpiry",)
+    
+    const options={
+        httpOnly:true,
+        secure:true
+    }
+
+    return res.status(200)
+        .cookie("accessToken",accessToken,options)
+        .cookie("refreshToken",refreshToken,options)
+        .json(
+            new ApiResponse(200,
+            {
+                user:loggedInuser,
+                accessToken,
+                refreshToken
+            },
+            "user logged in succesfully"
+        )
+        )
+    
+
+})
+export {registerUser,login}
