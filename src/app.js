@@ -1,6 +1,10 @@
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import {
+  errorHandler,
+  notFoundHandler,
+} from "./middlewares/error.middlewares.js";
 
 const app = express();
 
@@ -14,7 +18,7 @@ app.use(cookieParser());
 app.use(
   cors({
     origin: process.env.CORS_ORIGIN?.split() || "http://localhost:5173",
-    credential: true,
+    credentials: true,
     methods: ["GET", "PUT", "POST", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   }),
@@ -31,5 +35,8 @@ app.use("/api/v1/auth", authRouter);
 app.get("/", (req, res) => {
   res.send("hello world");
 });
+
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 export default app;

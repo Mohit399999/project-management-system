@@ -28,11 +28,7 @@ const userRegisterValidator = () => {
 
 const userLoginValidator = () => {
   return [
-    body("email")
-      .optional()
-      .trim()
-      .isEmail()
-      .withMessage("Email is invalid"),
+    body("email").optional().trim().isEmail().withMessage("Email is invalid"),
     body("username")
       .optional()
       .trim()
@@ -42,21 +38,22 @@ const userLoginValidator = () => {
   ];
 };
 
-const userChangeCurrentPasswordValidator=()=>{
+const userChangeCurrentPasswordValidator = () => {
   return [
     body("currentPassword")
-    .trim()
-    .notEmpty().withMessage("Password is required"),
+      .trim()
+      .notEmpty()
+      .withMessage("Password is required"),
     body("newPassword")
-    .trim()
-    .notEmpty().withMessage("Password is required")
-    .isLength({ min: 8 })
-    .withMessage("Password must be at least 8 characters long"),
+      .trim()
+      .notEmpty()
+      .withMessage("Password is required")
+      .isLength({ min: 8 })
+      .withMessage("Password must be at least 8 characters long"),
+  ];
+};
 
-  ]
-}
-
-const userForgotPasswordValidator=()=>{
+const userForgotPasswordValidator = () => {
   return [
     body("email")
       .trim()
@@ -64,18 +61,24 @@ const userForgotPasswordValidator=()=>{
       .withMessage("Email is required")
       .isEmail()
       .withMessage("Email is invalid"),
-  ]
-}
+  ];
+};
 
-const userResetForgotPasswordValidator=()=>{
+const userResetForgotPasswordValidator = () => {
   return [
-    body("password")
+    body("newPassword")
       .trim()
       .notEmpty()
       .withMessage("Password is required")
       .isLength({ min: 8 })
       .withMessage("Password must be at least 8 characters long"),
-  ]
-}
+  ];
+};
 
-export { userRegisterValidator, userLoginValidator ,userChangeCurrentPasswordValidator,userForgotPasswordValidator,userResetForgotPasswordValidator};
+export {
+  userRegisterValidator,
+  userLoginValidator,
+  userChangeCurrentPasswordValidator,
+  userForgotPasswordValidator,
+  userResetForgotPasswordValidator,
+};
