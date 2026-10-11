@@ -55,7 +55,7 @@ const emailVerificationMailgenContent = (username, verificationUrl) => {
           color: "#22BC66",
           text: "Verify your email",
           link: verificationUrl,
-        },
+        }, 
       },
       outro:
         "Need help or have questions ? Just reply to this mail we'd love to help",
