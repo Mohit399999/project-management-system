@@ -31,8 +31,8 @@ export const verifyJWT = asyncHandler(async (req, res, next) => {
   }
 });
 
-export const validateProjectPermission = (roles = []) => {
-  asyncHandler(async (req, res, next) => {
+export const validateProjectPermission = (roles = []) => 
+   asyncHandler(async (req, res, next) => {
     const { projectId } = req.params;
     if (!projectId) {
       throw new ApiError(400, "project id is missing");
@@ -55,4 +55,4 @@ export const validateProjectPermission = (roles = []) => {
     }
     next();
   });
-};
+
