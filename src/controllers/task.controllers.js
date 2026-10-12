@@ -31,7 +31,7 @@ const createTask = asyncHandler(async (req, res) => {
 
   const attachments = files.map((file) => {
     return {
-      url: `${process.env.SERVER_URL}/images/${file.originalname}`,
+      url: `${process.env.SERVER_URL}/images/${file.filename}`,
       mimetype: file.mimetype,
       size: file.size,
     };
@@ -153,13 +153,13 @@ const updateTask = asyncHandler(async (req, res) => {
 
   const attachments = files.map((file) => {
     return {
-      url: `${process.env.SERVER_URL}/images/${file.originalname}`,
+      url: `${process.env.SERVER_URL}/images/${file.filename}`,
       mimetype: file.mimetype,
       size: file.size,
     };
   });
 
-  const task = await Task.findByIdAndUpdate(
+  const task = await Task.findOneAndUpdate(
     { _id: taskId, project: projectId },
     {
       title,

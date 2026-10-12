@@ -36,9 +36,9 @@ router
       UserRolesEnum.ADMIN,
       UserRolesEnum.PROJECT_ADMIN,
     ]),
+    upload.array("attachments", 5),
     createTaskValidator(),
     validate,
-    upload.array("attachments", 5),
     createTask,
   );
 

@@ -18,20 +18,20 @@ const createProject = asyncHandler(async (req, res) => {
     project = await Project.create({
       name,
       description,
-      createdBy: new mongoose.Types.ObjectId(req.user._id),
+      createdBy: req.user._id,
     });
     await ProjectMember.create({
-      user: new mongoose.Types.ObjectId(req.user._id),
-      project: new mongoose.Types.ObjectId(project._id),
+      user: req.user._id,
+      project: project._id,
       role: UserRolesEnum.ADMIN,
     });
-    res
-      .status(201)
-      .json(new ApiResponse(201, project, "project created successfully"));
   } catch (error) {
     if (project) await Project.findByIdAndDelete(project._id);
-    throw new ApiError(500, error.message);
+    throw error; 
   }
+  return res
+    .status(201)
+    .json(new ApiResponse(201, project, "project created successfully"));
 });
 
 const updateProject = asyncHandler(async (req, res) => {
@@ -248,7 +248,7 @@ const getProjectMembers = asyncHandler(async (req, res) => {
 
 const updateMemberRole = asyncHandler(async (req, res) => {
   const { projectId, userId } = req.params;
-  const { newRole } = req.body;
+  const { role: newRole } = req.body;
 
   if (!AvailableUserRole.includes(newRole)) {
     throw new ApiError(400, "invalid role");
