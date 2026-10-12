@@ -6,6 +6,9 @@ import { ApiResponse } from "../utils/api-response.js";
 import { asyncHandler } from "../utils/async-handler.js";
 import { AvailableUserRole, UserRolesEnum } from "../utils/constants.js";
 import { sendMail, projectInviteMailgenContent } from "../utils/mail.js";
+import { Task } from "../models/task.models.js";
+import { SubTask } from "../models/subtask.models.js";
+import { ProjectNote } from "../models/note.models.js";
 import mongoose from "mongoose";
 
 const createProject = asyncHandler(async (req, res) => {

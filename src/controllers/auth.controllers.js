@@ -2,7 +2,11 @@ import { User } from "../models/user.models.js";
 import { ApiError } from "../utils/api-error.js";
 import { ApiResponse } from "../utils/api-response.js";
 import { asyncHandler } from "../utils/async-handler.js";
-import { emailVerificationMailgenContent, forgotPasswordMailgenContent, sendMail } from "../utils/mail.js";
+import {
+  emailVerificationMailgenContent,
+  forgotPasswordMailgenContent,
+  sendMail,
+} from "../utils/mail.js";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 
@@ -64,7 +68,7 @@ const registerUser = asyncHandler(async (req, res) => {
 
   await user.save({ validateBeforeSave: false });
 
- let emailSent = true;
+  let emailSent = true;
   try {
     await sendMail({
       email: user.email,
@@ -76,7 +80,10 @@ const registerUser = asyncHandler(async (req, res) => {
     });
   } catch (error) {
     emailSent = false;
-    console.error(`Verification email failed for ${user.email}:`, error.message);
+    console.error(
+      `Verification email failed for ${user.email}:`,
+      error.message,
+    );
   }
 
   const createdUser = await User.findById(user._id).select(
@@ -87,15 +94,17 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new ApiError(500, "something went wrong while registering the user");
   }
 
-  return res.status(201).json(
-    new ApiResponse(
-      201,
-      { user: createdUser, emailSent },
-      emailSent
-        ? "user registered successfully and verification email has been sent on your email"
-        : "user registered successfully, but we could not send the verification email. Log in and use the resend verification option.",
-    ),
-  );
+  return res
+    .status(201)
+    .json(
+      new ApiResponse(
+        201,
+        { user: createdUser, emailSent },
+        emailSent
+          ? "user registered successfully and verification email has been sent on your email"
+          : "user registered successfully, but we could not send the verification email. Log in and use the resend verification option.",
+      ),
+    );
 });
 
 const loginUser = asyncHandler(async (req, res) => {
@@ -287,10 +296,10 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
   }
 });
 
-const forgotPasswordRequest=asyncHandler(async (req,res)=>{
-  const {email}=req.body
+const forgotPasswordRequest = asyncHandler(async (req, res) => {
+  const { email } = req.body;
 
-  const user=await User.findOne({email})
+  const user = await User.findOne({ email });
 
   if (user) {
     const { unHashedToken, hashedToken, tokenExpiry } =
@@ -299,82 +308,79 @@ const forgotPasswordRequest=asyncHandler(async (req,res)=>{
     user.forgotPasswordExpiry = tokenExpiry;
     await user.save({ validateBeforeSave: false });
 
-  try {
-    await sendMail({
-    email: user?.email,
-    subject: "forgot password request",
-    mailgenContent: forgotPasswordMailgenContent(
-      user.username,
-      `${req.protocol}://${req.get("host")}/forgot-password/${unHashedToken}`,
-    ),
-  });
-  } catch (error) {
-    console.error(`Reset email failed for ${user.email}:`, error.message);
+    try {
+      await sendMail({
+        email: user?.email,
+        subject: "forgot password request",
+        mailgenContent: forgotPasswordMailgenContent(
+          user.username,
+          `${req.protocol}://${req.get("host")}/forgot-password/${unHashedToken}`,
+        ),
+      });
+    } catch (error) {
+      console.error(`Reset email failed for ${user.email}:`, error.message);
+    }
   }
-  
+
   return res
-  .status(200)
-  .json(
-    new ApiResponse(200,{},"if an account with that email exists, a password reset mail has been sent")
-  )
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        {},
+        "if an account with that email exists, a password reset mail has been sent",
+      ),
+    );
+});
 
-})
+const resetForgotPassword = asyncHandler(async (req, res) => {
+  const { resetToken } = req.params;
+  const { newPassword } = req.body;
 
-const resetForgotPassword=asyncHandler(async (req,res)=>{
-  const {resetToken}=req.params
-  const {newPassword}=req.body
+  const hashedToken = crypto
+    .createHash("sha256")
+    .update(resetToken)
+    .digest("hex");
 
-  const hashedToken=crypto
-  .createHash("sha256")
-  .update(resetToken)
-  .digest("hex")
+  const user = await User.findOne({
+    forgotPasswordToken: hashedToken,
+    forgotPasswordExpiry: { $gt: Date.now() },
+  });
 
-  const user=await User.findOne({
-    forgotPasswordToken:hashedToken,
-    forgotPasswordExpiry:{$gt:Date.now()}
-  })
-
-  if(!user){
+  if (!user) {
     throw new ApiError(401, "token is invalid or expired");
   }
-  user.forgotPasswordExpiry=undefined
-  user.forgotPasswordToken=undefined
+  user.forgotPasswordExpiry = undefined;
+  user.forgotPasswordToken = undefined;
 
-  user.password=newPassword
+  user.password = newPassword;
 
-  await user.save({validateBeforeSave:false})
-  
+  await user.save({ validateBeforeSave: false });
+
   return res
-  .status(200)
-  .json(
-    new ApiResponse(200,
-    {},"password reset successfully")
-  )
+    .status(200)
+    .json(new ApiResponse(200, {}, "password reset successfully"));
+});
 
-})
+const changeCurrentPassword = asyncHandler(async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
 
-const changeCurrentPassword=asyncHandler(async (req,res)=>{
+  const user = await User.findById(req.user?._id);
 
-  const {currentPassword,newPassword}=req.body
-  
-  const user=await User.findById(req.user?._id)
+  const isPasswordValid = await user.isPasswordCorrect(currentPassword);
 
-  const isPasswordValid=await user.isPasswordCorrect(currentPassword)
-
-  if(!isPasswordValid){
-    throw new ApiError(400,"old password is invalid")
+  if (!isPasswordValid) {
+    throw new ApiError(400, "old password is invalid");
   }
 
-  user.password=newPassword
-  
-  await user.save({validateBeforeSave:false})
+  user.password = newPassword;
+
+  await user.save({ validateBeforeSave: false });
 
   return res
-  .status(200)
-  .json(
-    new ApiResponse(200,{},"password changed successfully")
-  )
-})
+    .status(200)
+    .json(new ApiResponse(200, {}, "password changed successfully"));
+});
 
 export {
   registerUser,
