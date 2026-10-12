@@ -5,6 +5,7 @@ import { ApiError } from "../utils/api-error.js";
 import { ApiResponse } from "../utils/api-response.js";
 import { asyncHandler } from "../utils/async-handler.js";
 import { AvailableUserRole, UserRolesEnum } from "../utils/constants.js";
+import { sendMail, projectInviteMailgenContent } from "../utils/mail.js";
 import mongoose from "mongoose";
 
 const createProject = asyncHandler(async (req, res) => {
@@ -56,6 +57,12 @@ const deleteProject = asyncHandler(async (req, res) => {
   if (!project) {
     throw new ApiError(404, "project not found");
   }
+  const tasks = await Task.find({ project: projectId }).select(
+    "_id attachments",
+  );
+  await SubTask.deleteMany({ task: { $in: tasks.map((t) => t._id) } });
+  await Task.deleteMany({ project: projectId });
+  await ProjectNote.deleteMany({ project: projectId });
   await ProjectMember.deleteMany({ project: projectId });
   return res
     .status(200)
@@ -132,28 +139,49 @@ const getProjectById = asyncHandler(async (req, res) => {
 const addMemberToProject = asyncHandler(async (req, res) => {
   const { projectId } = req.params;
   const { email, role } = req.body;
-  const user = await User.findOne({ email });
-  if (!user) {
-    throw new ApiError(404, "user not found");
+
+  const user = await User.findOne({ email: email.toLowerCase() });
+  if (!user) throw new ApiError(404, "user not found");
+
+  const alreadyMember = await ProjectMember.exists({
+    user: user._id,
+    project: projectId,
+  });
+  if (alreadyMember) {
+    throw new ApiError(
+      409,
+      "user is already a member of this project, use the update role endpoint instead",
+    );
   }
-  const projectMember = await ProjectMember.findByIdAndUpdate(
-    {
-      user: new mongoose.Types.ObjectId(user._id),
-      project: new mongoose.Types.ObjectId(projectId),
-    },
-    {
-      user: new mongoose.Types.ObjectId(user._id),
-      project: new mongoose.Types.ObjectId(projectId),
-      role: role,
-    },
-    {
-      new: true,
-      upsert: true,
-    },
-  );
+
+  const project = await Project.findById(projectId);
+  if (!project) throw new ApiError(404, "project not found");
+
+  await ProjectMember.create({ user: user._id, project: project._id, role });
+
+  let emailSent = true;
+  try {
+    const clientUrl = process.env.CLIENT_URL || "http://localhost:5173";
+    await sendMail({
+      email: user.email,
+      subject: `You have been added to ${project.name}`,
+      mailgenContent: projectInviteMailgenContent(
+        user.username,
+        project.name,
+        role,
+        `${clientUrl}/projects/${project._id}`,
+      ),
+    });
+  } catch (error) {
+    emailSent = false;
+    console.error(`Invite email failed for ${user.email}:`, error.message);
+  }
+
   return res
     .status(201)
-    .json(new ApiResponse(201, {}, "project member added successfully"));
+    .json(
+      new ApiResponse(201, { emailSent }, "project member added successfully"),
+    );
 });
 
 const getProjectMembers = asyncHandler(async (req, res) => {

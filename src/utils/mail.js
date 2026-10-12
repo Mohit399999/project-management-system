@@ -1,7 +1,6 @@
 import Mailgen from "mailgen";
 import nodemailer from "nodemailer";
 
-
 // emailVerificationMailgenContent creates blueprint → blueprint passed in as options.mailgenContent (just storage, not a render step) → mailGenerator.generate() / generatePlaintext() consume that blueprint and produce strings (emailHtml, emailTextual) → mail object drafted using those strings → transporter.sendMail(mail) transports it.
 
 const sendMail = async (options) => {
@@ -55,7 +54,7 @@ const emailVerificationMailgenContent = (username, verificationUrl) => {
           color: "#22BC66",
           text: "Verify your email",
           link: verificationUrl,
-        }, 
+        },
       },
       outro:
         "Need help or have questions ? Just reply to this mail we'd love to help",
@@ -83,8 +82,26 @@ const forgotPasswordMailgenContent = (username, passwordResetUrl) => {
   };
 };
 
+const projectInviteMailgenContent = (
+  username,
+  projectName,
+  role,
+  projectUrl,
+) => ({
+  body: {
+    name: username,
+    intro: `You have been added to the project "${projectName}" as ${role}.`,
+    action: {
+      instructions: "Click the button below to open the project",
+      button: { color: "#22BC66", text: "Open project", link: projectUrl },
+    },
+    outro:
+      "Need help or have questions ? Just reply to this mail we'd love to help",
+  },
+});
 export {
   emailVerificationMailgenContent,
   forgotPasswordMailgenContent,
+  projectInviteMailgenContent,
   sendMail,
 };

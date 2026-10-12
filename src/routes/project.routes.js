@@ -14,16 +14,18 @@ import { validate } from "../middlewares/validator.middlewares.js";
 import {
   createProjectValidator,
   addMemberToProjectValidator,
-  updateMemberRoleValidator
+  updateMemberRoleValidator,
+  mongoIdParams,
 } from "../validators/index.js";
 import {
   verifyJWT,
   validateProjectPermission,
+  requireVerifiedEmail,
 } from "../middlewares/auth.middlewares.js";
 import { AvailableUserRole, UserRolesEnum } from "../utils/constants.js";
 
 const router = Router();
-router.use(verifyJWT);
+router.use(verifyJWT, requireVerifiedEmail);
 
 router
   .route("/")
@@ -54,11 +56,16 @@ router
 router
   .route("/:projectId/members/:userId")
   .put(
-  validateProjectPermission([UserRolesEnum.ADMIN]),
-  updateMemberRoleValidator(),
-  validate,
-  updateMemberRole,
-)
-  .delete(validateProjectPermission([UserRolesEnum.ADMIN]), deleteMember);
+    validateProjectPermission([UserRolesEnum.ADMIN]),
+    updateMemberRoleValidator(),
+    validate,
+    updateMemberRole,
+  )
+  .delete(
+    validateProjectPermission([UserRolesEnum.ADMIN]),
+    ...mongoIdParams("userId"),
+    validate,
+    deleteMember,
+  );
 
 export default router;

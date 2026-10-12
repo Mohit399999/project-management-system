@@ -31,11 +31,21 @@ export const verifyJWT = asyncHandler(async (req, res, next) => {
   }
 });
 
-export const validateProjectPermission = (roles = []) => 
-   asyncHandler(async (req, res, next) => {
+export const requireVerifiedEmail = (req, res, next) => {
+  if (!req.user?.isEmailVerified) {
+    throw new ApiError(403, "please verify your email to access this resource");
+  }
+  next();
+};
+
+export const validateProjectPermission = (roles = []) =>
+  asyncHandler(async (req, res, next) => {
     const { projectId } = req.params;
     if (!projectId) {
       throw new ApiError(400, "project id is missing");
+    }
+    if (!mongoose.isValidObjectId(projectId)) {
+      throw new ApiError(400, "invalid project id");
     }
 
     const project = await ProjectMember.findOne({
@@ -55,4 +65,3 @@ export const validateProjectPermission = (roles = []) =>
     }
     next();
   });
-

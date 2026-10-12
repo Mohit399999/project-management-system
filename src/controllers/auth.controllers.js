@@ -6,6 +6,11 @@ import { emailVerificationMailgenContent, forgotPasswordMailgenContent, sendMail
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 
+const cookieOptions = () => ({
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+});
+
 const generateAccessAndRefreshTokens = async (userId) => {
   try {
     const user = await User.findById(userId);
@@ -25,7 +30,7 @@ const generateAccessAndRefreshTokens = async (userId) => {
 
 const registerUser = asyncHandler(async (req, res) => {
   //first getting the values from the req
-  const { username, email, password, role } = req.body;
+  const { username, email, password, fullName } = req.body;
 
   //serching in the db if user already exists
   const existingUser = await User.findOne({
@@ -45,6 +50,7 @@ const registerUser = asyncHandler(async (req, res) => {
 
   const user = await User.create({
     username,
+    fullName,
     email,
     password,
     isEmailVerified: false,
@@ -58,14 +64,20 @@ const registerUser = asyncHandler(async (req, res) => {
 
   await user.save({ validateBeforeSave: false });
 
-  await sendMail({
-    email: user?.email,
-    subject: "please verify your email",
-    mailgenContent: emailVerificationMailgenContent(
-      user.username,
-      `${req.protocol}://${req.get("host")}/api/v1/auth/verify-email/${unHashedToken}`,
-    ),
-  });
+ let emailSent = true;
+  try {
+    await sendMail({
+      email: user.email,
+      subject: "please verify your email",
+      mailgenContent: emailVerificationMailgenContent(
+        user.username,
+        `${req.protocol}://${req.get("host")}/api/v1/auth/verify-email/${unHashedToken}`,
+      ),
+    });
+  } catch (error) {
+    emailSent = false;
+    console.error(`Verification email failed for ${user.email}:`, error.message);
+  }
 
   const createdUser = await User.findById(user._id).select(
     "-password -refreshToken -emailVerificationToken -emailVerificationExpiry",
@@ -75,15 +87,15 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new ApiError(500, "something went wrong while registering the user");
   }
 
-  return res
-    .status(201)
-    .json(
-      new ApiResponse(
-        201,
-        { user: createdUser },
-        "user registered sucessfully and verification email has been sent on your email",
-      ),
-    );
+  return res.status(201).json(
+    new ApiResponse(
+      201,
+      { user: createdUser, emailSent },
+      emailSent
+        ? "user registered successfully and verification email has been sent on your email"
+        : "user registered successfully, but we could not send the verification email. Log in and use the resend verification option.",
+    ),
+  );
 });
 
 const loginUser = asyncHandler(async (req, res) => {
@@ -111,10 +123,7 @@ const loginUser = asyncHandler(async (req, res) => {
     "-password -refreshToken -emailVerificationToken -emailVerificationExpiry",
   );
 
-  const options = {
-    httpOnly: true,
-    secure: true,
-  };
+  const options = cookieOptions();
 
   return res
     .status(200)
@@ -145,10 +154,7 @@ const logoutUser = asyncHandler(async (req, res) => {
       new: true,
     },
   );
-  const options = {
-    httpOnly: true,
-    secure: true,
-  };
+  const options = cookieOptions();
   return res
     .status(200)
     .clearCookie("accessToken", options)
@@ -254,10 +260,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
       throw new ApiError(401, "refresh token is expired");
     }
 
-    const options = {
-      httpOnly: true,
-      secure: true,
-    };
+    const options = cookieOptions();
     const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(
       user._id,
     );
@@ -289,18 +292,15 @@ const forgotPasswordRequest=asyncHandler(async (req,res)=>{
 
   const user=await User.findOne({email})
 
-  if(!user){
-    throw new ApiError(404,"user does not exist")
-  }
+  if (user) {
+    const { unHashedToken, hashedToken, tokenExpiry } =
+      user.generateTemporaryToken();
+    user.forgotPasswordToken = hashedToken;
+    user.forgotPasswordExpiry = tokenExpiry;
+    await user.save({ validateBeforeSave: false });
 
-  const { unHashedToken, hashedToken, tokenExpiry } =
-    user.generateTemporaryToken();
-  user.forgotPasswordToken = hashedToken;
-  user.forgotPasswordExpiry = tokenExpiry;
-
-  await user.save({ validateBeforeSave: false });
-
-  await sendMail({
+  try {
+    await sendMail({
     email: user?.email,
     subject: "forgot password request",
     mailgenContent: forgotPasswordMailgenContent(
@@ -308,11 +308,14 @@ const forgotPasswordRequest=asyncHandler(async (req,res)=>{
       `${req.protocol}://${req.get("host")}/forgot-password/${unHashedToken}`,
     ),
   });
+  } catch (error) {
+    console.error(`Reset email failed for ${user.email}:`, error.message);
+  }
   
   return res
   .status(200)
   .json(
-    new ApiResponse(200,{}," forgot password mail sent successfully on your email")
+    new ApiResponse(200,{},"if an account with that email exists, a password reset mail has been sent")
   )
 
 })
